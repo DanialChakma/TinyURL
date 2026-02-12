@@ -1,0 +1,13 @@
+go install github.com/githubnemo/CompileDaemon@latest
+
+# for Running API server, https://gin-gonic.com/en/docs/quickstart/
+go get -u github.com/gin-gonic/gin
+# for Dot ENV environment variable setup, https://github.com/joho/godotenv
+go get github.com/joho/godotenv
+
+# GORM, GO ORM(object relationship manager) https://gorm.io/docs/index.html
+go get -u gorm.io/gorm
+go get -u gorm.io/driver/sqlite
+
+go get go.mongodb.org/mongo-driver/mongo
+go get github.com/go-redis/redis/v8

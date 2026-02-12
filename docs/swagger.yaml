@@ -1,0 +1,435 @@
+basePath: /api/v1
+definitions:
+  controllers.CreateShortURLRequest:
+    properties:
+      long_url:
+        example: https://example.com/very/long/url
+        type: string
+      tenant_id:
+        example: tenant_123
+        type: string
+    type: object
+  controllers.CreateShortURLResponse:
+    properties:
+      short_url:
+        example: https://short.ly/links/abc123
+        type: string
+    type: object
+  controllers.ErrorResponse:
+    properties:
+      error:
+        example: Invalid request
+        type: string
+    type: object
+  controllers.LoginRequest:
+    properties:
+      password:
+        example: "123456"
+        type: string
+      username:
+        example: john
+        type: string
+    required:
+    - password
+    - username
+    type: object
+  controllers.RegisterRequest:
+    properties:
+      email:
+        example: john@example.com
+        type: string
+      password:
+        example: "123456"
+        type: string
+      role:
+        example: user
+        type: string
+      username:
+        example: john
+        type: string
+    required:
+    - email
+    - password
+    - role
+    - username
+    type: object
+  controllers.TokenResponse:
+    properties:
+      access_token:
+        example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        type: string
+      refresh_token:
+        example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        type: string
+    type: object
+  dto.CreateTenantDTO:
+    properties:
+      active:
+        type: boolean
+      base_url:
+        type: string
+      meta_datas:
+        additionalProperties: true
+        type: object
+      tenant_id:
+        type: string
+      tenant_name:
+        type: string
+    required:
+    - base_url
+    - tenant_id
+    - tenant_name
+    type: object
+  dto.UpdateTenantDTO:
+    properties:
+      active:
+        type: boolean
+      base_url:
+        type: string
+      meta_datas:
+        additionalProperties: true
+        type: object
+      tenant_name:
+        type: string
+    type: object
+  models.Tenant:
+    properties:
+      active:
+        description: enable/disable tenant
+        type: boolean
+      base_url:
+        description: used for redirect prefix
+        type: string
+      created_at:
+        type: integer
+      meta_datas:
+        additionalProperties: true
+        type: object
+      tenant_id:
+        description: unique tenant identifier (slug)
+        type: string
+      tenant_name:
+        description: display name
+        type: string
+      updated_at:
+        type: integer
+    type: object
+  models.User:
+    properties:
+      created_at:
+        type: string
+      email:
+        type: string
+      id:
+        type: string
+      is_active:
+        type: boolean
+      role:
+        type: string
+      updated_at:
+        type: string
+      username:
+        type: string
+    type: object
+info:
+  contact: {}
+  description: A high-performance URL shortening service built with Go (Gin framework),
+    Redis cache, and MongoDB. Supports millions of short URLs, fast lookups with Redis
+    TTL caching, multi-tenancy for multiple organizations, and both stateful and stateless
+    short URLs.
+  title: Scalable Multi-Tenant URL Shortener API
+  version: "1.0"
+paths:
+  /links:
+    post:
+      consumes:
+      - application/json
+      description: Generates a short URL for the provided long URL. Optionally supports
+        multi-tenant optimization.
+      parameters:
+      - description: Long URL payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.CreateShortURLRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.CreateShortURLResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: Create stateful short URL
+      tags:
+      - URL
+  /links/{code}:
+    get:
+      description: Redirects to the original long URL using the provided short code.
+      parameters:
+      - description: Short code (Base62 alphanumeric)
+        in: path
+        name: code
+        required: true
+        type: string
+      responses:
+        "302":
+          description: Redirects to original URL
+          schema:
+            type: string
+        "400":
+          description: Invalid short code
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "404":
+          description: URL not found
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: Redirect to original URL
+      tags:
+      - URL
+  /login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticate user and return access & refresh tokens
+      parameters:
+      - description: Login payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.TokenResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Login user
+      tags:
+      - Auth
+  /refresh:
+    post:
+      description: Generate new access and refresh tokens using refresh token (Token
+        Rotation)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.TokenResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Refresh access token
+      tags:
+      - Auth
+  /register:
+    post:
+      consumes:
+      - application/json
+      description: Create a new user account
+      parameters:
+      - description: Register payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.User'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Register new user
+      tags:
+      - Auth
+  /tenants:
+    get:
+      description: Retrieve all tenants
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.Tenant'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get all tenants
+      tags:
+      - Tenants
+    post:
+      consumes:
+      - application/json
+      description: Create tenant (Admin only)
+      parameters:
+      - description: Tenant data
+        in: body
+        name: tenant
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateTenantDTO'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.Tenant'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create a new tenant
+      tags:
+      - Tenants
+  /tenants/{id}:
+    delete:
+      description: Delete tenant by ID
+      parameters:
+      - description: Tenant ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete tenant
+      tags:
+      - Tenants
+    get:
+      description: Retrieve a tenant using tenant ID
+      parameters:
+      - description: Tenant ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Tenant'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get tenant by ID
+      tags:
+      - Tenants
+    put:
+      consumes:
+      - application/json
+      description: Update tenant by ID
+      parameters:
+      - description: Tenant ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Updated tenant data
+        in: body
+        name: tenant
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdateTenantDTO'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Tenant'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update tenant
+      tags:
+      - Tenants
+securityDefinitions:
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
